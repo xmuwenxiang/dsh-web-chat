@@ -1,6 +1,6 @@
 {
   "name": "dsh-webchat",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Codex-ChatGPT-mode style web chat for DeepSeek Harness: chat through chat.deepseek.com (deepseek-chat) using your DeepSeek web session instead of API billing, then transfer the conversation into a harness session as development context — or let the harness agent chat through the same web session. Hot-pluggable: mounted via the web profile's bundles list + a profile node_modules install, no dsh source changes.",
   "keywords": [
     "dsh",

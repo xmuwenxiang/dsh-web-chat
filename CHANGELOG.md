@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-08-25
+
 ### Added
 
 - **Transfer target workspace**: the "Transfer to Harness" panel and the `webchat_transfer` tool now let you pick a target workspace (or leave the new session ungrouped). The transferred session is created with the workspace's canonical path as its working directory and attached to the workspace's account, so it is grouped under that workspace in the sidebar instead of "Ungrouped".
