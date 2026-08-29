@@ -28,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - `webchat_send` now waits for the completed reply (`wait=true`) instead of returning immediately with an empty reply.
+- `webchat_send` and `webchat_transfer` tool results now omit `undefined` fields (`error`, `code`, `workspaceId`). The harness rejects tool output that is not lossless JSON, so a successful call previously failed with "value is not lossless JSON".
 
 ## [0.1.0] - 2026-08-20
 
