@@ -141,12 +141,13 @@ export function webChatSendTool(engine: DeepSeekWebEngine) {
         : undefined
       // wait=true so the tool returns the completed reply (the GUI path is fire-and-forget).
       const result = await engine.send(textValue, true, images)
-      return {
+      const sent: { reply: string; error?: string; code?: string; partial: boolean } = {
         reply: result.reply ?? '',
-        error: result.error,
-        code: result.code,
         partial: result.error !== undefined,
       }
+      if (result.error !== undefined) sent.error = result.error
+      if (result.code !== undefined) sent.code = result.code
+      return sent
     },
   })
 }
@@ -248,7 +249,9 @@ export function webChatTransferTool(hostCtx: Context, store: TranscriptStore, di
       const workspace = targetSessionId === undefined && typeof args?.workspaceId === 'string' && args.workspaceId !== '' ? { workspaceId: args.workspaceId } : undefined
       try {
         const { sessionId, distilled, attached, workspaceId } = await transferToHarnessSession(hostCtx, { transcript: chat, cwd: args?.cwd, workspace, targetSessionId }, distill)
-        return { sessionId, distilled, attached, continued: targetSessionId !== undefined, workspaceId }
+        const transferred: { sessionId: string; distilled: boolean; attached: boolean; continued: boolean; workspaceId?: string } = { sessionId, distilled, attached, continued: targetSessionId !== undefined }
+        if (workspaceId !== undefined) transferred.workspaceId = workspaceId
+        return transferred
       } catch (error) {
         return { sessionId: '', distilled: false, attached: false, continued: targetSessionId !== undefined, error: `webchat_transfer: 转移失败 — ${String(error)}` }
       }
