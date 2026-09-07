@@ -43,6 +43,21 @@ dsh plugin --profile web add github:xmuwenxiang/dsh-web-chat
 - 已安装 Google Chrome 或 Microsoft Edge
 - 首次登录需要可交互的图形环境（弹出登录窗口）
 
+### dsh（宿主）兼容性
+
+宿主半区会按运行中的 dsh 版本自动适配设置注册 API；发布产物 `lib/` 从不静态
+import 新版 dsh 已移除的导出名，因此在下列版本上模块链接都不会失败：
+
+- **dsh ≥ 0.1.2-rc.1** —— 设置注册已改为 `SettingsProvider.installSection`
+  （rc.7 时代的独立导出 `installSettingsSection` / `settingsNamespace` 已移除），支持；
+- **dsh 0.1.0-rc.7 / rc.8** —— 旧版 `installSettingsSection` API，通过运行时
+  回退兼容，老宿主行为不变。
+
+`dsh.client.inject` 只列出在所有受支持版本中都存在的客户端包（`@deepseek-ai/dsh-client-runtime`
+在 0.1.2-rc.1 已不再发布，故不再引用）。浏览器半区从客户端 context 读取
+`sessions`/`workspaces` 服务，而这两者的提供方包在不同 dsh 代际间有变化——若某个 dsh 版本的
+GUI 未挂载这些服务，面板只是不挂载（记录错误），宿主侧工具与路由照常工作，绝不影响 GUI 启动。
+
 ## 限制
 
 - 网页端受 DeepSeek 官方风控；页面改版或操作失败时返回错误而非崩溃。

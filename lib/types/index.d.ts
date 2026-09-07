@@ -8,6 +8,7 @@
  * transport rides the official NPM SDK packages — no dsh source changes.
  */
 import type { Context } from '@deepseek-ai/cordis';
+import type { SettingsNamespace } from '@deepseek-ai/dsh-settings';
 import z from 'schemastery';
 /** Stable cordis plugin name. */
 export declare const name = "webchat";
@@ -16,9 +17,12 @@ export declare const inject: string[];
 /**
  * Settings namespace of the web-chat capability — the section the web
  * settings surface edits. Spelled here rather than imported: the browser half
- * spells the same value and must not depend on a Host package.
+ * spells the same value and must not depend on a Host package. It is a plain
+ * lowercase string on every dsh generation (rc.7's settingsNamespace() helper
+ * was only a runtime regex check; 0.1.2-rc.1 removed the helper and brands the
+ * string purely at the type level), so no version-gated construction is needed.
  */
-export declare const WEBCHAT_SETTINGS_NAMESPACE: import("@deepseek-ai/dsh-settings").SettingsNamespace;
+export declare const WEBCHAT_SETTINGS_NAMESPACE: SettingsNamespace;
 /** Plugin config, validated by the same-named schemastery schema. */
 export interface Config {
     /** When true (default), a system-prompt section announces the plugin to every agent. */

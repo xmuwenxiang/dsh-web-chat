@@ -9,7 +9,10 @@
  */
 
 import type { Context } from '@deepseek-ai/cordis'
-import { installSettingsSection, settingsNamespace } from '@deepseek-ai/dsh-settings'
+// Type-only: the namespace brand is exported by every @deepseek-ai/dsh-settings
+// generation (rc.7-era and 0.1.2-rc.1). It erases at build, so it never becomes
+// a runtime import that could fail the module-link phase on a newer host.
+import type { SettingsNamespace } from '@deepseek-ai/dsh-settings'
 import z from 'schemastery'
 import type {} from '@deepseek-ai/dsh-host-webserver'
 import type {} from '@deepseek-ai/dsh-system-prompt'
@@ -30,9 +33,12 @@ export const inject = ['webServer', 'tools', 'systemPrompt', 'sessions']
 /**
  * Settings namespace of the web-chat capability — the section the web
  * settings surface edits. Spelled here rather than imported: the browser half
- * spells the same value and must not depend on a Host package.
+ * spells the same value and must not depend on a Host package. It is a plain
+ * lowercase string on every dsh generation (rc.7's settingsNamespace() helper
+ * was only a runtime regex check; 0.1.2-rc.1 removed the helper and brands the
+ * string purely at the type level), so no version-gated construction is needed.
  */
-export const WEBCHAT_SETTINGS_NAMESPACE = settingsNamespace('dsh-webchat')
+export const WEBCHAT_SETTINGS_NAMESPACE: SettingsNamespace = 'dsh-webchat' as SettingsNamespace
 
 /** Plugin config, validated by the same-named schemastery schema. */
 export interface Config {
@@ -201,15 +207,55 @@ export function apply(ctx: Context, config?: Config): void {
     )
   }
 
-  installSettingsSection(ctx, WEBCHAT_SETTINGS_NAMESPACE, Config, config ?? {}, {
-    setSource: (source) => {
-      current = source
-      sync()
-    },
-    onChange: sync,
+  // Attach the optional user-settings section. The registration API changed
+  // between dsh generations and the module-link phase is version-sensitive:
+  //  - dsh ≤ 0.1.0-rc.8 exported a standalone installSettingsSection(ctx, ...);
+  //  - dsh 0.1.2-rc.1 removed that export and moved registration onto the
+  //    settings provider service as SettingsProvider.installSection(ctx, ...).
+  // A static named import of the legacy helper would therefore fail to link on
+  // 0.1.2-rc.1 hosts (the crash this file caused before the adapter), so the
+  // legacy helper is reached only through a dynamic import — never folded into
+  // a static import by the bundler — and only on hosts whose provider still
+  // lacks installSection. ctx.inject(['settings']) keeps the section optional,
+  // exactly like the legacy helper: no settings service ever mounted means the
+  // callback never runs and the plugin simply keeps its composition config.
+  ctx.inject(['settings'], (settingsCtx) => {
+    const provider = (settingsCtx as unknown as {
+      settings?: { installSection?: unknown }
+    }).settings
+    // Generation-spanning hooks shape: identical in the rc.7-era standalone
+    // helper and in SettingsProvider.installSection (source sink + re-judge).
+    interface SettingsHooks {
+      setSource: (source: () => Config) => void
+      onChange: () => void
+    }
+    const hooks: SettingsHooks = {
+      setSource: (source: () => Config) => {
+        current = source
+        sync()
+      },
+      onChange: sync,
+    }
+    if (typeof provider?.installSection === 'function') {
+      // dsh 0.1.2-rc.1+: SettingsProvider.installSection(ctx, ns, schema, entry, hooks).
+      ;(provider as { installSection: (owner: Context, ns: SettingsNamespace, schema: typeof Config, entry: Config, hooks: SettingsHooks) => void })
+        .installSection(ctx, WEBCHAT_SETTINGS_NAMESPACE, Config, config ?? {}, hooks)
+      return
+    }
+    // dsh ≤ 0.1.0-rc.8: the legacy standalone helper still exported there.
+    void import('@deepseek-ai/dsh-settings').then((module) => {
+      const legacy = (module as unknown as {
+        installSettingsSection?: (owner: Context, ns: SettingsNamespace, schema: typeof Config, entry: Config, hooks: SettingsHooks) => void
+      }).installSettingsSection
+      if (typeof legacy === 'function') {
+        legacy(ctx, WEBCHAT_SETTINGS_NAMESPACE, Config, config ?? {}, hooks)
+      }
+    })
   })
 
   // Initial registration from the composition entry (covers deployments with
-  // no settings service, whose installSettingsSection never fires its hooks).
+  // no settings service, whose settings section never attaches — the inject
+  // callback above never fires, so nothing has re-synced from a resolved
+  // section yet).
   sync()
 }

@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **dsh 0.1.2-rc.1 host crash (`code=1`)**: the host half no longer statically imports
+  `installSettingsSection` / `settingsNamespace` from `@deepseek-ai/dsh-settings` (removed in
+  0.1.2-rc.1, which failed module linking at host boot). Settings registration now uses
+  `SettingsProvider.installSection` on ≥ 0.1.2-rc.1 hosts and falls back at runtime to the legacy
+  standalone helper on 0.1.0-rc.7 / rc.8 hosts, so both generations load.
+- **Browser-half manifest**: `dsh.client.inject` no longer references
+  `@deepseek-ai/dsh-client-runtime` (not published at 0.1.2-rc.1); it lists only client packages
+  present on every supported dsh generation.
+
 ## [0.2.0] - 2026-08-25
 
 ### Added
