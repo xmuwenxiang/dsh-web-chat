@@ -535,7 +535,7 @@ export class DeepSeekWebEngine {
     }
   }
 
-  async ensureBrowser(): Promise<Page> {
+  async ensureBrowser(headed = false): Promise<Page> {
     if (this.isPageAlive()) return this.page!
     if (this.state === 'launching') {
       // Another call is already launching; wait for it.
@@ -562,7 +562,7 @@ export class DeepSeekWebEngine {
             ...attempt,
             // The one-time login window must be visible; normal (chat) launches
             // are headless by default so the browser stays out of the way.
-            headless: this.loginMode ? false : (this.config.headless ?? true),
+            headless: (headed || this.loginMode) ? false : (this.config.headless ?? true),
             viewport: null,
             args: options.args,
           })
@@ -647,10 +647,12 @@ export class DeepSeekWebEngine {
   async openLoginWindow(): Promise<{ ok: boolean; error?: string }> {
     try {
       // Close any running (possibly headless) browser first so we always open a
-      // fresh *visible* window for the one-time login.
-      if (this.page !== undefined || this.context !== undefined) await this.disposeBrowser()
+      // fresh *visible* window for the one-time login. loginMode is set before
+      // the dispose so concurrent status() polls cannot relaunch a headless
+      // browser in the gap while the old page is closing.
       this.loginMode = true
-      await this.ensureBrowser()
+      if (this.page !== undefined || this.context !== undefined) await this.disposeBrowser()
+      await this.ensureBrowser(true)
       await this.page?.bringToFront()
       void this.watchLoginAndClose()
       return { ok: true }
@@ -809,6 +811,7 @@ export class DeepSeekWebEngine {
     const titles = await this.page.evaluate(() => {
       const found = new Set<string>()
       const selectors = [
+        'a[href*="/a/chat/s/"]',
         '[class*="conversation"]',
         '[class*="chat-item"]',
         '[class*="session-item"]',
@@ -833,6 +836,7 @@ export class DeepSeekWebEngine {
   private async clickConversationByTitle(title: string): Promise<boolean> {
     if (this.page === undefined) return false
     const selectors = [
+      'a[href*="/a/chat/s/"]',
       '[class*="conversation"]',
       '[class*="chat-item"]',
       '[class*="session-item"]',
@@ -867,8 +871,15 @@ export class DeepSeekWebEngine {
     try {
       const clicked = await this.clickConversationByTitle(title)
       if (!clicked) return { ok: false, error: `未在网页端找到会话「${title}」` }
-      await this.page!.waitForTimeout(1_500)
-      const scraped = await this.scrapeConversation()
+      // The SPA re-renders the message list after navigation; wait, then retry
+      // a few times because larger conversations can take a while to appear in
+      // the virtual list.
+      await this.page!.waitForTimeout(2_000)
+      let scraped = await this.scrapeConversation()
+      for (let attempt = 0; attempt < 4 && scraped.length === 0; attempt++) {
+        await this.page!.waitForTimeout(2_000)
+        scraped = await this.scrapeConversation()
+      }
       if (scraped.length === 0) return { ok: false, error: '读取网页会话历史失败（页面可能已改版）' }
       const messages = this.scrapedToMessages(scraped)
       const model = this.deepThink ? 'deepseek-reasoner' : 'deepseek-chat'
@@ -1259,7 +1270,6 @@ export class DeepSeekWebEngine {
     }
     this.context = undefined
     this.page = undefined
-    this.loginMode = false
     if (this.state !== 'error') this.setState('stopped')
   }
 
@@ -1278,7 +1288,7 @@ export class DeepSeekWebEngine {
     // Self-heal: if the browser was up but the page died (e.g. the user closed
     // the window), relaunch so the panel reconnects. Explicit disposeBrowser()
     // leaves state 'stopped', which we leave alone until the next user action.
-    if (this.state === 'ready' && !this.isPageAlive()) {
+    if (this.state === 'ready' && !this.isPageAlive() && !this.loginMode) {
       await this.ensureBrowser().catch(() => undefined)
     }
     let loggedIn = await this.isLoggedIn()

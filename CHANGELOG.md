@@ -17,6 +17,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Browser-half manifest**: `dsh.client.inject` no longer references
   `@deepseek-ai/dsh-client-runtime` (not published at 0.1.2-rc.1); it lists only client packages
   present on every supported dsh generation.
+- **One-time login window launched headless**: `openLoginWindow` could open the login browser in
+  headless (invisible) mode, so the user never saw the sign-in page. The `loginMode` flag was reset
+  by `disposeBrowser()` mid-launch and a concurrent `status()` poll could relaunch a headless
+  browser in the gap. `ensureBrowser` now takes an explicit `headed` flag, `loginMode` is set before
+  the dispose, `disposeBrowser` no longer clears it, and `status()` does not auto-relaunch during a
+  login flow.
+- **Web conversation listing/clicking broke after a DeepSeek page change**: the sidebar now uses
+  hashed CSS class names, so the `[class*="conversation"]` / `nav a` / `aside a` selectors no longer
+  matched. Added the stable `a[href*="/a/chat/s/"]` selector for both listing and clicking
+  conversations.
+- **Recovering a conversation could fail with "读取网页会话历史失败"**: the virtualized message list
+  sometimes takes longer than 1.5 s to render after navigation, so the scrape returned empty.
+  Recovery now waits 2 s and retries up to 4 times before giving up.
 
 ## [0.2.0] - 2026-08-25
 
